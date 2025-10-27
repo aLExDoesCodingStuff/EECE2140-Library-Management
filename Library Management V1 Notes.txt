@@ -1,0 +1,69 @@
+Library Management V1
+
+===================================================
+## IMPLEMENTED AND WORKING
+===================================================
+LIBRARY CLASS
+	Instance Variables
+		- inventory (list[Book])
+	Functions
+		- listInv()
+		- checkout_item()
+		- return_item()
+		- parseCSV() - populates inventory from a CSV using Pandas
+	Notes:
+		- TO ADD:
+			- search function!!
+				- search by title, author, ISBN(not yet added to Book)
+			- access control system
+				- list of registered 'User' accounts authorized to make requests (checkout,return,etc)
+				- list of registered 'Admin' accounts authorized to access/manipulate database
+			- persistence
+				- library database should be constantly backed up to disk storage
+				- eventually transition to a distributed application with always-on library server
+		
+				
+			
+BOOK CLASS
+	Instance Variables
+		- title
+		- author
+		- copies (list[dict])
+		- waitlist (deque)
+	Functions
+		-make_copies() - creates a certain number of book copy dictionaries
+		-locate_copies() - prints the borrower/borrow_date for the list of copies
+
+		
+USER CLASS
+	Instance Variables
+		- username (str)
+		- items_checked_out (list[Book])
+		- hold_items (list[Book])
+	Functions
+		- print_hold_items() - print list of Books on hold (Book(s) for which user(self) is in waitlist)
+		- print_checked_out() - print list of Books currently checked out by user
+	Notes:
+		- TO ADD:
+			- username/password: access authentification via the Library system
+		
+	
+	
+===================================================
+## NOT IMPLEMENTED
+===================================================
+
+- waitlist/hold functionality:
+	- once a user returns a book, check the waitlist status for that book
+		- if empty...
+			-  do nothing
+		- if not empty...
+			- notify 1st user in line that the book is available
+			- start a 3-day hold timer for them to check out the book
+				- (if not checked out w/in 3-days, 1st user is removed from waitlist, and process repeats)
+
+- persistence
+	- make a savefile that be stored in disk
+	- the central library system will need to run on an always-on server
+	- 
+				

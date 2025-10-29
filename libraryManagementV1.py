@@ -150,7 +150,7 @@ class Book:
     def __repr__(self):
         return f"{self.name},'{self.author}',{self.genre},{len(self.copies)}"
         
-    
+print("Hello Alex what are you being for halloween dont be lame and say nothing")    
         
 class Waitlist:
     def __init__(self,book):

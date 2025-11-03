@@ -1,16 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Oct 29 13:27:59 2025
-
-@author: Brooke Wassmann
-NUID: 02607768
-DS 2000
-Description of program
-"""
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 from collections import deque
 from datetime import timedelta
 from datetime import date

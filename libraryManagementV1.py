@@ -1,19 +1,30 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Oct 29 13:27:59 2025
+
+@author: Brooke Wassmann
+NUID: 02607768
+DS 2000
+Description of program
+"""
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 from collections import deque
 from datetime import timedelta
 from datetime import date
-import numpy as np
 from pathlib import Path
 import pandas as pd
 
 
 
-base_directory = Path(__file__).parent
-filename = "Sample Datasets/books_new.csv"
-filepath = base_directory/filename
 
+base_directory = Path(__file__).parent
+filename = "books_new.csv"
+filepath = base_directory/filename
+df = pd.read_csv(filename,usecols=['Title','Author','Genre'])
+filename = df.dropna(axis=0, how='any')
 
 class Library:
     
@@ -29,7 +40,46 @@ class Library:
             print(f"{counter}.",book)
             counter+=1
             
+    #Persistance methods
+    def catalog_system(self, list_of_users):
+        master_list_catalog = []
+        if list_of_users is None:
+            print("No users yet.")
+            return master_list_catalog 
+            
+        for user in list_of_users:
+            if user.items_checked_out: 
+                for book, copy in user.items_checked_out: 
+                    record = {
+                        "username": user.username,
+                        "book_title": book.name,
+                        "return_date": copy["return_date"]
+                    }
+                    master_list_catalog.append(record)
+        return master_list_catalog
         
+    def save_state(self, master_catalog_list):
+        output_filename = "catalogSystem.csv"
+        master_catalog_df = pd.DataFrame(master_catalog_list)
+        if len(master_catalog_df) > 0:
+            master_catalog_df.to_csv(output_filename, index=False)
+            print(f"\nSuccessfully saved {len(master_catalog_df)} records to {output_filename}.")
+        else:
+            print("\nNo checked out items to save.")
+
+    @staticmethod
+    def load_state(filename):
+        try:
+            df_catalog = pd.read_csv(filename)
+            print(f"\nSuccessfully loaded catalog from {filename} with {len(df_catalog)} records.")
+            return df_catalog
+        except FileNotFoundError:
+            print(f"\n[LOAD ERROR] Catalog file not found: {filename}. Returning an empty catalog DataFrame.")
+            return pd.DataFrame()
+        except Exception as e:
+            print(f"\n[LOAD ERROR] Failed to load catalog: {e}. Returning an empty catalog DataFrame.")
+            return pd.DataFrame()
+                
     # Checks out a book from the library's inventory. 
     def checkout_item(self,book,user):
         # Check if the user already has the book in their hold list
@@ -56,11 +106,11 @@ class Library:
         # If there's no active waitlist, check the list of copies to see if the book is available.
         counter = 0
         while counter < len(book.copies):
-           if book.copies[counter]["borrowed_by"] == None:
-               self.process_checkout(book,user,counter)
-               print(f"{user.username} checked out: {book.name} by {book.author}.") # Update message to include available remaining copies
-               return
-           counter+=1
+            if book.copies[counter]["borrowed_by"] == None:
+                self.process_checkout(book,user,counter)
+                print(f"{user.username} checked out: {book.name} by {book.author}.") # Update message to include available remaining copies
+                return
+            counter+=1
         # if all copies are in use, join the waitlist  
         pos = book.waitlist.add_to_queue(user)
         user.items_on_hold.append(book)
@@ -105,7 +155,7 @@ class Library:
         # print a summary
         print(f"{user} returned {book.name}.")
         
-       # advance the waitlist
+        # advance the waitlist
         book.waitlist.advance_waitlist()
         
     # checks a book object for checked-out copies which are overdue
@@ -152,9 +202,9 @@ class Library:
     # modify the current date recognized by the library instance AND related classes
     # * note that directly changing self.current_date would fail to change the date of related classes such as waitlist
     def set_date(self,new_date):
-       if not isinstance(new_date,date):
-           raise TypeError
-       self.current_date = new_date
+        if not isinstance(new_date,date):
+            raise TypeError
+        self.current_date = new_date
            
           
         
@@ -191,10 +241,12 @@ class Book:
         return info
     
     def __str__(self):
-         return self.name
+          return self.name
      
     def __repr__(self):
         return f"{self.name},'{self.author}',{self.genre},{len(self.copies)}"
+        
+    
         
 class Waitlist:
     def __init__(self,book):
@@ -231,9 +283,9 @@ class Waitlist:
     # notifies the 1st user (leader) in waitlist when a book copy becomes available to them
     # initiates a timer for leader to checkout a book
     def notify_waitlist_leader(self):
-       pass
+        pass
     
-     # returns the end date of the checkout window to collect book on hold
+      # returns the end date of the checkout window to collect book on hold
     def calculate_checkout_window(self):
         today = date.today()
         checkout_by = today + timedelta(days=self.default_pending_hold_window)
@@ -308,6 +360,7 @@ class User:
     
 library = Library()
 library.parseCSV(filepath) 
+library.load_state("catalogSystem.csv")
 
 user1 = User("John")
 user2 = User("Susan")
@@ -315,6 +368,7 @@ user3 = User("Sasha")
 user4 = User("Terry")
 user5 = User("Anna")
 user6 = User("Noelle")
+list_of_users = [user1, user2, user3, user4, user5, user6]
 
 print(library.current_date)
 
@@ -328,55 +382,17 @@ print()
 library.checkout_item(book1,user4) 
 library.checkout_item(book1,user5)
 print()
-
+master_catalog = library.catalog_system(list_of_users)
 print(book1.waitlist)
 print()
 
-library.return_item(book1, user1)
-print()
-library.checkout_item(book1, user5)
-        
 library.return_item(book1, user1)
 
 library.checkout_item(book1,user6) # should add Noelle to waitlist
 
 library.return_item(book1,user1)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-     
-    
-        
-    
-    
-    
-
-    
-    
-    
-    
-   
-
+library.save_state(master_catalog)
 
 
 

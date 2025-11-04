@@ -192,8 +192,48 @@ class Library:
         if not isinstance(new_date,date):
             raise TypeError
         self.current_date = new_date
-           
-          
+        
+   #search for books by exact title 
+    def search_by_title(self,title):
+        results=[]
+        for book in self.inventory:
+            if book.name.lower() == title.lower():
+                results.append(book)
+        if results: 
+            print(f"\n{len(results)} found with title '{title}")
+            for i, book in enumerate(results,1):
+                print(f"{i}. {book.name} by {book.author}, {book.genre}")
+        else: 
+            print(f"\nNo books found with the title '{title}'")
+        return results
+        
+    #search for books by the exact author name, undercase or uppercase
+    def search_by_author(self, author):
+        results=[]
+        for book in self.inventory: 
+            if book.author.lower() == author.lower():
+                results.append(book)
+        if results: 
+            print(f"\n{len(results)} found for author '{author}'")
+            for i, book in enumerate(results, 1):
+                print(f"{i}. {book.name}, {book.genre})")
+        else: 
+            print(f"\nNo books found by author '{author}'.")
+        return results
+
+    #searches for book by the genre, returns a list of books with that genre
+    def search_by_genre(self,genre):
+        results=[]
+        for book in self.inventory: 
+            if book.genre.lower() == genre.lower():
+                results.append(book)
+        if results: 
+            print(f"\n{len(results)} found for genre '{genre}'")
+            for i, book in enumerate(results, 1):
+                print(f"{i}. {book.name} by {book.author})")
+        else: 
+            print(f"\nNo books found in genre '{genre}'.")
+        return results
         
 class Book:
     

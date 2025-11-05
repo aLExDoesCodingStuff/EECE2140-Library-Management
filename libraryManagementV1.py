@@ -3,6 +3,10 @@ from datetime import timedelta
 from datetime import date
 from pathlib import Path
 import pandas as pd
+from auth import Role, AccessControl
+
+
+
 
 
 
@@ -15,10 +19,11 @@ filename = df.dropna(axis=0, how='any')
 
 class Library:
     
-    def __init__(self):
+    def __init__(self,access_control):
         self.inventory = []
         self.current_date = date.today()
         self.default_checkout_window = 7 # days
+        self.ac = access_control()
         
     
     def listInv(self):
@@ -26,8 +31,9 @@ class Library:
         for book in self.inventory:
             print(f"{counter}.",book)
             counter+=1
-            
-    #Persistance methods
+   
+#================================================================
+#PERSISTENCE METHODS   
     def catalog_system(self, list_of_users):
         master_list_catalog = []
         if list_of_users is None:
@@ -54,6 +60,7 @@ class Library:
         else:
             print("\nNo checked out items to save.")
 
+    # fetches the save-file (CSV) from storage and returns the data as a Pandas dataframe
     @staticmethod
     def load_state(filename):
         try:
@@ -66,8 +73,13 @@ class Library:
         except Exception as e:
             print(f"\n[LOAD ERROR] Failed to load catalog: {e}. Returning an empty catalog DataFrame.")
             return pd.DataFrame()
+        
+    
+        
+#================================================================
                 
     # Checks out a book from the library's inventory. 
+    @requires_permission("checkout_book")
     def checkout_item(self,book,user):
         # Check if the user already has the book in their hold list
         if book in user.items_on_hold:
@@ -115,6 +127,7 @@ class Library:
     
   
     # Returns a book to the library's inventory, and assesses late fees if applicable
+    @requires_permission("return_book")
     def return_item(self,book,user):
         
         # check if the user actually has the book checked out
@@ -185,6 +198,7 @@ class Library:
             self.inventory.append(Book(title,author,genre))
         
         print("Parsed CSV and added items to inventory.")
+    
     
     # modify the current date recognized by the library instance AND related classes
     # * note that directly changing self.current_date would fail to change the date of related classes such as waitlist
@@ -344,42 +358,50 @@ class User:
 
 # ====================================================================
 # TEST CODE: 
-    
-library = Library()
+member_role = Role("member",["checkout_book","return_book"])  
+admin_role = Role("admin",["add_book","remove_book"])
+ac = Access_Control()
+
+library = Library(ac)
 library.parseCSV(filepath) 
-library.load_state("catalogSystem.csv")
+saved_data = library.load_state("catalogSystem.csv")
+print(saved_data.head())
+
 
 user1 = User("John")
-user2 = User("Susan")
-user3 = User("Sasha")
-user4 = User("Terry")
-user5 = User("Anna")
-user6 = User("Noelle")
-list_of_users = [user1, user2, user3, user4, user5, user6]
-
-print(library.current_date)
-
-
-book1 = library.inventory[0]
+ac.assign_role(user1.username,member_role)
 library.checkout_item(book1,user1) 
-library.checkout_item(book1,user2)
-library.checkout_item(book1,user3)
 print()
 
-library.checkout_item(book1,user4) 
-library.checkout_item(book1,user5)
-print()
-master_catalog = library.catalog_system(list_of_users)
-print(book1.waitlist)
-print()
 
-library.return_item(book1, user1)
 
-library.checkout_item(book1,user6) # should add Noelle to waitlist
 
-library.return_item(book1,user1)
 
-library.save_state(master_catalog)
+# user2 = User("Susan")
+# user3 = User("Sasha")
+# user4 = User("Terry")
+# user5 = User("Anna")
+# user6 = User("Noelle")
+# list_of_users = [user1, user2, user3, user4, user5, user6]
+
+# print(library.current_date)
+
+
+# book1 = library.inventory[0]
+# library.checkout_item(book1,user1) 
+# library.checkout_item(book1,user2)
+# library.checkout_item(book1,user3)
+# print()
+
+# library.checkout_item(book1,user4) 
+# library.checkout_item(book1,user5)
+# print()
+# master_catalog = library.catalog_system(list_of_users)
+# print(book1.waitlist)
+# print()
+
+
+# library.save_state(master_catalog)
 
 
 

@@ -5,10 +5,11 @@ from pathlib import Path
 import pandas as pd
 
 
-
+## NOTE: In order for the program to find the dataset, YOU MUST HAVE books_new.csv INSIDE A FOLDER CALLED "SAMPLE DATASETS", which itself is inside the same directory (folder) as the source code.
+##       The easiest way to ensure the program works is to clone the entire repo instead of downloading the files individually from GitHub.  
 
 base_directory = Path(__file__).parent
-filename = "books_new.csv"
+filename = "Sample Datasets/books_new.csv"
 filepath = base_directory/filename
 df = pd.read_csv(filename,usecols=['Title','Author','Genre'])
 filename = df.dropna(axis=0, how='any')

@@ -10,7 +10,8 @@ class Role:
     def __init__(self,name,permissions):
         self.name = name
         self.permissions = set(permissions)
+        print(f">>> Initializing new RBAC role '{self.name}' with permissions: {self.permissions}\n")
         
     def __repr__(self):
-        return self.name
+        return f"{self.name}: {self.permissions}"
         

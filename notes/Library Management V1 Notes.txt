@@ -1,6 +1,20 @@
 Library Management V1
 
 ===================================================
+## IN PROGRESS
+===================================================
+Persistence
+	Current state:
+		- catalog_system() takes a list of users, retrieves info about the books they have checked out, and compiles it into a master_list_catalog
+		- save_state() converts the catalog created by catalog_system() into a Pandas dataframe, then into a CSV savefile
+		- load_state() checks for an existing savefile at the start of a session, and parses it back into a Pandas dataframe, or else returns an empty dataframe
+	Changes to make:
+		- Expand catalog_system() to track the waitlist for a book (ie, for a certain book, who is in the waitlist and what is their current position)
+		- Expand catalog_system() to track pending holds (where a user has been through the whole waitlist already, but still needs to check out the book). Should track the user, and the days remaining until their hold expires. 
+		- Make a new method which, using the dataframe returned by load_state(), actually recreates the previous state of the library (basically doing the reverse of catalog_system()). For example, for all the users with checked-out books, it should call checkout_item(). Everyone in the waitlist for a book should get placed back into the waitlist, etc. 
+				
+
+===================================================
 ## IMPLEMENTED AND WORKING
 ===================================================
 LIBRARY CLASS
@@ -62,8 +76,6 @@ USER CLASS
 			- start a 3-day hold timer for them to check out the book
 				- (if not checked out w/in 3-days, 1st user is removed from waitlist, and process repeats)
 
-- persistence
-	- make a savefile that be stored in disk
-	- the central library system will need to run on an always-on server
+- 
 	- 
 				

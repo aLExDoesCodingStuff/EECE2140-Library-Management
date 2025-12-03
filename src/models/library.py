@@ -24,6 +24,7 @@ class Library:
         self.inventory = []
         self.current_date = date.today()
         self.default_checkout_window = 7 # days
+        self.checkout_history = {}
         self.ac = AccessControl()
         
     
@@ -278,5 +279,75 @@ class Library:
         if not isinstance(new_date,date):
             raise TypeError
         self.current_date = new_date
+
+    #search for books by exact title 
+    def search_by_title(self,title):
+        results=[]
+        for book in self.inventory:
+            if book.name.lower() == title.lower():
+                results.append(book)
+        if results: 
+            print(f"\n{len(results)} found with title '{title}")
+            for i, book in enumerate(results,1):
+                print(f"{i}. {book.name} by {book.author}, {book.genre}")
+        else: 
+            print(f"\nNo books found with the title '{title}'")
+        return results
+        
+    #search for books by the exact author name, undercase or uppercase
+    def search_by_author(self, author):
+        results=[]
+        for book in self.inventory: 
+            if book.author.lower() == author.lower():
+                results.append(book)
+        if results: 
+            print(f"\n{len(results)} found for author '{author}'")
+            for i, book in enumerate(results, 1):
+                print(f"{i}. {book.name}, {book.genre})")
+        else: 
+            print(f"\nNo books found by author '{author}'.")
+        return results
+
+    #searches for book by the genre, returns a list of books with that genre
+    def search_by_genre(self,genre):
+        results=[]
+        for book in self.inventory: 
+            if book.genre.lower() == genre.lower():
+                results.append(book)
+        if results: 
+            print(f"\n{len(results)} found for genre '{genre}'")
+            for i, book in enumerate(results, 1):
+                print(f"{i}. {book.name} by {book.author})")
+        else: 
+            print(f"\nNo books found in genre '{genre}'.")
+        return results
+   
+    def recommend_books(self, user, max_recommendations=5): 
+        if not user.checkout_history:
+            print(f"\n{user.username} has no checkout history. No recommendations available.")
+            return []
+        
+        favorite_genre = max(user.checkout_history, key=user.checkout_history.get)
+        checkout_count = user.checkout_history[favorite_genre]
+        
+        print(f"\nBased on your checkout history, you've checked out {checkout_count} book(s) in '{favorite_genre}'.")
+        print(f"Here are some recommendations from the '{favorite_genre}' genre:\n")
+        
+        currently_checked_out_books = [book for book, copy in user.items_checked_out] #gets books in that genre
+        
+        recommendations = []
+        for book in self.inventory:
+            if book.genre.lower() == favorite_genre.lower() and book not in currently_checked_out_books:
+                recommendations.append(book)
+        
+        if recommendations:
+            display_count = min(len(recommendations), max_recommendations)
+            for i in range(display_count):
+                book = recommendations[i]
+                print(f"{i+1}. {book.name} by {book.author}")
+        else:
+            print(f"No additional books are available in the '{favorite_genre}' genre.")
+        
+        return recommendations[:max_recommendations]    
            
  

@@ -1,3 +1,5 @@
+# models/library.py
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -9,23 +11,23 @@ import sys
 from pathlib import Path
 from datetime import timedelta
 from datetime import date
-from pathlib import Path
 import pandas as pd
-from auth.access_control import AccessControl
+from auth.access_control import AccessControl # Assuming this is available
 from models.book import Book
 
 
 class Library:
-
-    # df = pd.read_csv(filename,usecols=['Title','Author','Genre'])
-    # filename = df.dropna(axis=0, how='any')
     
-    def __init__(self,access_control):
+    def __init__(self, access_control=None):
         self.inventory = []
         self.current_date = date.today()
         self.default_checkout_window = 7 # days
-        self.checkout_history = {}
-        self.ac = AccessControl()
+        self.user_id_counter = 0 
+        
+        if access_control is None:
+             self.ac = AccessControl()
+        else:
+             self.ac = access_control
         
     
     def listInv(self,user):
@@ -37,13 +39,128 @@ class Library:
             print(f"{counter}.",book)
             counter+=1
    
-#================================================================
-#PERSISTENCE METHODS   
-    def catalog_system(self, user,list_of_users):
-        # authorization check
+    # bulk add books to inventory from a book dataset (CSV format)
+    def parse_CSV(self,filePath):
+        try:
+            print(f"[DEBUG] Attempting to load CSV from: {filePath}")
+            df = pd.read_csv(filePath,usecols=['Title','Author','Genre']).dropna()
+            data = df.to_numpy()
+            for row in data:
+                title = row[0]
+                author = row[1]
+                genre = row[2]
+                self.inventory.append(Book(title,author,genre))
+            
+            print("[DEBUG] Parsed CSV and added items to inventory.")
+        
+        except Exception as e: # <-- CHANGE TO CATCH A SPECIFIC EXCEPTION
+            print(f"[ERROR] Failed to load CSV file.") # <-- ADD THIS LINE
+            print(f"[ERROR] The exact error is: {e}")
+    
+    def __find_available_copy(self,book):
+        for copy in book.copies:
+            if copy["borrowed_by"] is None:
+                return copy
+        return None 
+    
+    def __process_checkout(self, user, book, copy):
+        today = self.current_date
+        copy["borrowed_by"] = user
+        copy["borrow_date"] = today
+        copy["return_date"] = today + timedelta(days=self.default_checkout_window)
+        user.items_checked_out.append((book, copy))
+
+    def checkout_item(self, book, user):
+        if not self.ac.has_permission(user.username,"checkout_item"):
+            raise PermissionError("Access Denied: checkout_item")
+            
+        # Check if book is available on hold
+        for (u, window) in list(book.waitlist.holds_pending):
+            if u == user: 
+                self.__process_checkout(user, book, book.copies[0]) # Assuming first copy for simplicity
+                book.waitlist.holds_pending.remove((u, window))
+                user.items_on_hold.remove(book)
+                return f"{user.username} checked out {book.name} (Hold)."
+
+        # Check for available copy
+        copy = self.__find_available_copy(book)
+        if copy is not None:
+            self.__process_checkout(user, book, copy)
+            return f"{user.username} checked out: {book.name} by {book.author}."
+        
+        # Add to waitlist
+        pos = book.waitlist.add_to_queue(user)
+        user.items_on_hold.append(book)
+        return f"All copies of {book.name} are checked out. {user.username} waitlisted at position {pos}."
+
+
+    def return_item(self, book, user):
+        if not self.ac.has_permission(user.username,"return_item"):
+            raise PermissionError("Access Denied: return_item")
+            
+        copy_found = None
+        
+        # 1. Find the specific copy the user has checked out
+        for book_ref, copy_ref in user.items_checked_out:
+            if book_ref == book and copy_ref['borrowed_by'] == user: 
+                copy_found = copy_ref
+                user.items_checked_out.remove((book_ref, copy_ref))
+                break
+
+        if copy_found is None:
+            return f"{user.username} does NOT have {book.name} checked out."
+
+        # 2. Reset the copy in the book's inventory
+        copy_found["borrowed_by"] = None
+        copy_found["borrow_date"] = None
+        copy_found["return_date"] = None
+
+        # 3. Advance waitlist if queue is not empty
+        if book.waitlist.queue:
+            book.waitlist.advance_waitlist()
+        
+        return f"{user.username} returned {book.name}."
+    
+    def cleanup_user_data(self, user_obj, admin_user):
+        # 1. Authorization check
+        if not self.ac.has_permission(admin_user.username, "delete_user"):
+            raise PermissionError("Access Denied: delete_user")
+
+        # 2. Handle checked-out items (reset copies and advance waitlist)
+        for book_ref, copy_ref in list(user_obj.items_checked_out):
+            # Reset the specific copy back to available
+            copy_ref["borrowed_by"] = None
+            copy_ref["borrow_date"] = None
+            copy_ref["return_date"] = None
+            
+            # Advance waitlist for that book as if it was returned
+            if len(book_ref.waitlist.queue) > 0:
+                book_ref.waitlist.advance_waitlist()
+        
+        # 3. Handle waitlist items (remove user from queues/holds)
+        for book in self.inventory:
+            # Remove from waitlist queue (deque method)
+            if user_obj in book.waitlist.queue:
+                book.waitlist.queue.remove(user_obj)
+            
+            # Remove from holds_pending set
+            holds_to_remove = set()
+            for hold in book.waitlist.holds_pending:
+                if hold[0] == user_obj:
+                    holds_to_remove.add(hold)
+            book.waitlist.holds_pending -= holds_to_remove
+
+        # 4. Clean up AccessControl roles
+        if user_obj.username in self.ac.user_roles:
+            del self.ac.user_roles[user_obj.username]
+            
+        return f"Cleaned up {len(user_obj.items_checked_out)}"
+    
+    # PERSISTENCE METHODS
+    
+    def catalog_system(self, user, list_of_users):
         if not self.ac.has_permission(user.username,"catalog_system"):
             raise PermissionError("Access Denied: catalog_system")
-            
         master_list_catalog = []
         if list_of_users is None:
             print("No users yet.")
@@ -350,4 +467,3 @@ class Library:
         
         return recommendations[:max_recommendations]    
            
- 

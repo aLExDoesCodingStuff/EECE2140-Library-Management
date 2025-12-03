@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Nov  5 16:18:08 2025
 
-@author: alexmessier
-"""
 
 from collections import deque
 from datetime import timedelta
@@ -27,6 +23,8 @@ class Waitlist:
         
         
     def advance_waitlist(self):
+        if not self.queue:
+            return
         line_leader = self.queue.popleft()
         checkout_window = self.calculate_checkout_window()
         t = (line_leader,checkout_window)

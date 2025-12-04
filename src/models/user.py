@@ -1,18 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Nov  5 16:18:35 2025
-
-@author: alexmessier
-"""
-
-
-
 class User: 
     def __init__(self, username:str):
         self.username = username
         self.items_checked_out = []
         self.items_on_hold = []
+        self.checkout_history = {}
         
     def print_hold_items(self):
         if len(self.items_on_hold)==0:

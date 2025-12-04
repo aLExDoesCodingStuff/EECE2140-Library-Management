@@ -24,12 +24,17 @@ from auth.access_control import AccessControl
 base_directory = Path.cwd()
 if base_directory not in sys.path:
     sys.path.append(base_directory)
+# This path relies on the script being run from the 'src' directory (base_directory)
 dataset_filepath = base_directory.parent/"Sample Datasets"/"books_new.csv"
 
 # Load state and assign to global variables
 library, userbase = load_state(dataset_filepath) 
 current_user = None
-
+inventory_count = 0 # NEW: Global variable for inventory status
+for user_id, user_obj in userbase.items():
+    if not hasattr(user_obj, 'checkout_history'):
+        user_obj.checkout_history = {}
+        
 # Initialize Tkinter root window
 root = tk.Tk()
 main_content_frame = ttk.Frame(root)
@@ -38,6 +43,38 @@ main_content_frame.pack(fill='both', expand=True)
 # Setup RBAC Roles
 member_role = Role("member",["checkout_item","return_item"])  
 admin_role = Role("admin",["add_item","remove_item","process_checkout","get_days_overdue","get_overdue_copies","check_overdue","catalog_system","list_inv","load_state","save_state","set_date"])
+
+# =========================
+# Inventory Loading Logic 
+# =========================
+def check_and_load_inventory():
+    """Checks the CSV path and attempts to load inventory, updating the global count."""
+    global inventory_count
+    
+    if library.inventory:
+        inventory_count = len(library.inventory)
+        print(f"[INIT] Inventory already contains {inventory_count} books from load_state.")
+        return
+        
+    print(f"[INIT] Calculated CSV Path: {dataset_filepath}")
+    
+    if not dataset_filepath.exists():
+        print(f"[INIT] CRITICAL ERROR: CSV file NOT FOUND at: {dataset_filepath}")
+        print("[INIT] Please ensure you are running the script from the correct directory or the path is correct.")
+        inventory_count = 0
+        return
+    
+    print("[INIT] Inventory is empty after loading state. Attempting to parse CSV...")
+    # library.parse_CSV now returns the number of books added
+    books_added = library.parse_CSV(dataset_filepath) 
+    inventory_count = books_added
+    
+    if inventory_count > 0:
+        print(f"[INIT] Successfully loaded {inventory_count} books from CSV.")
+    else:
+        print("[INIT] WARNING: Inventory remains empty. Check console for [ERROR] output from parse_CSV.")
+
+check_and_load_inventory()
 
 # =========================
 # Utility Functions
@@ -142,6 +179,7 @@ def show_overdue_report(user_obj):
             report_text.pack(padx=20, pady=10)
             report_text.insert(tk.END, f"Overdue Items as of {library.current_date}:\n\n")
             
+            # To get book name, we now have to search inventory for the copy
             for copy in overdue_copies:
                 days_overdue = (library.current_date - copy['return_date']).days
                 borrower = copy['borrowed_by'].username
@@ -171,50 +209,72 @@ def show_overdue_report(user_obj):
 
 # --- Member Specific Handlers ---
 
-def handle_checkout(book_entry, user_obj, frame):
-    try:
-        book_index = int(book_entry.get().strip()) - 1
-        if book_index < 0 or book_index >= len(library.inventory):
-            messagebox.showerror("Error", "Invalid book index. Please enter a valid number from the list.")
-            return
 
-        book_to_checkout = library.inventory[book_index]
-        library.checkout_item(book_to_checkout, user_obj)
-        messagebox.showinfo(
-            "Checkout Successful",  # Title for the pop-up
-            'Your checkout was successful!' # The successful message 
-        )
+def handle_checkout(book_obj, user_obj):
+    """Handles the checkout attempt for a specific book object."""
+    try:
+        # Checkout item
+        result_message = library.checkout_item(book_obj, user_obj)
+        messagebox.showinfo("Checkout Action", result_message)
         show_library_menu(user_obj)
         
-    except ValueError:
-        messagebox.showerror("Error", "Please enter a valid number for the book index.")
     except PermissionError as e:
         messagebox.showerror("Permission Denied", str(e))
     except Exception as e:
-        # Check for specific library-side errors (e.g., no available copy, already checked out, etc.)
-        messagebox.showerror("System Error", f"An error occurred: {e}")
+        # Handles waitlist message or system error
+        messagebox.showerror("Checkout Failed/Waitlist", str(e))
+        show_library_menu(user_obj) # Return to menu after Waitlist message
 
 def handle_return(book_entry, user_obj, frame):
+    """Handles the book return process from the list of checked-out items."""
     try:
+        checked_out_books_unique = []
+        # Get unique books the user has (to match the displayed list)
+        for book, copy in user_obj.items_checked_out:
+            # only show one entry per unique book name for simplicity in return selection
+            if book not in [b for b, c in checked_out_books_unique]:
+                 checked_out_books_unique.append((book, copy))
+        
         book_index = int(book_entry.get().strip()) - 1
-        if book_index < 0 or book_index >= len(library.inventory):
-            messagebox.showerror("Error", "Invalid book index. Please enter a valid number from the list.")
+        
+        if book_index < 0 or book_index >= len(checked_out_books_unique):
+            messagebox.showerror("Error", "Invalid selection. Please enter a valid number from the list.")
             return
 
-        book_to_return = library.inventory[book_index]
-        library.return_item(book_to_return, user_obj)
-        clear_frame(frame)
-        messagebox.showinfo(
-            "Return Successful",  # Title for the pop-up
-            'Your return was successful!' # The successful message
-        )
+        # Get the actual book object
+        book_to_return = checked_out_books_unique[book_index][0]
+
+        # Call the return method
+        result_message = library.return_item(book_to_return, user_obj)
+        
+        messagebox.showinfo("Return Successful", result_message)
         show_library_menu(user_obj)
     except ValueError:
         messagebox.showerror("Error", "Please enter a valid number for the book index.")
     except PermissionError as e:
         messagebox.showerror("Permission Denied", str(e))
     except Exception as e:
-        messagebox.showerror("System Error", f"An error occurred: {e}")
+        messagebox.showerror("System Error", str(e))
+
+
+def handle_search(search_term_entry, search_by_var, user_obj):
+    """Processes search and displays results."""
+    search_term = search_term_entry.get().strip()
+    search_by = search_by_var.get()
+    
+    if not search_term:
+        messagebox.showerror("Error", "Please enter a search term.")
+        return
+
+    # Check for empty inventory before searching
+    if not library.inventory:
+        messagebox.showerror("Error", "The library catalog is empty. Please check the console for CSV loading errors.")
+        return
+        
+    # Call the new library search_catalog method
+    results = library.search_catalog(search_term, search_by)
+    
+    show_search_results(user_obj, results, search_term, search_by)
 
 
 # =========================
@@ -240,9 +300,9 @@ def show_admin_menu(user_obj):
     
     ttk.Separator(main_content_frame, orient='horizontal').pack(fill='x', pady=10)
     
-    # Basic Library Actions (Still available to admin)
-    ttk.Button(main_content_frame, text="Checkout Book (Member Actions)", command=lambda: book_selection(user_obj)).pack(pady=5, ipadx=10)
-    ttk.Button(main_content_frame, text="Return Book (Member Actions)", command=lambda: book_return(user_obj)).pack(pady=5, ipadx=10)
+    # User Actions (Now using search/return UI)
+    ttk.Button(main_content_frame, text="Search for a Book", command=lambda: show_search_form(user_obj)).pack(pady=5, ipadx=10)
+    ttk.Button(main_content_frame, text="Return a Book", command=lambda: book_return(user_obj)).pack(pady=5, ipadx=10)
     
     ttk.Button(main_content_frame, text="Logout", command=show_main_menu).pack(pady=20)
 
@@ -250,6 +310,7 @@ def show_admin_menu(user_obj):
 def show_library_menu(user_obj):
     """
     Shows the appropriate menu (Admin or Member) based on user permissions.
+    MODIFIED: Replaced checkout button with Search and Recommendations.
     """
     if is_admin(user_obj):
         show_admin_menu(user_obj)
@@ -262,8 +323,11 @@ def show_library_menu(user_obj):
     if user_obj.items_checked_out:
         ttk.Label(main_content_frame, text=f"Checked out: {len(user_obj.items_checked_out)} item(s)").pack()
 
-    ttk.Button(main_content_frame, text="Checkout a Book", command=lambda: book_selection(user_obj)).pack(pady=10, ipadx=10)
+    # Search and Recommendation buttons
+    ttk.Button(main_content_frame, text="Search for a Book", command=lambda: show_search_form(user_obj)).pack(pady=10, ipadx=10)
+    ttk.Button(main_content_frame, text="Get Book Recommendations", command=lambda: show_recommendations(user_obj)).pack(pady=10, ipadx=10)
     ttk.Button(main_content_frame, text="Return a Book", command=lambda: book_return(user_obj)).pack(pady=10, ipadx=10)
+    
     ttk.Button(main_content_frame, text="Logout", command=show_main_menu).pack(pady=20)
 
 
@@ -293,31 +357,26 @@ def book_selection(user_obj):
     clear_frame(main_content_frame)
     ttk.Label(main_content_frame, text="Available Books", font=('Arial', 16, 'bold')).pack(pady=10)
     
-    inventory_text = tk.Text(main_content_frame, height=10, width=50)
-    for i, book in enumerate(library.inventory, start=1):
-        inventory_text.insert(tk.END, f"{i}. {book}\n")
-    inventory_text.config(state=tk.DISABLED) 
-    inventory_text.pack(pady=5, padx=10)
+    ttk.Label(main_content_frame, text="Please use the Search feature to find and checkout a book.", foreground='blue').pack(pady=10)
+    ttk.Button(main_content_frame, text="Go to Search", command=lambda: show_search_form(user_obj)).pack(pady=10)
 
-    ttk.Label(main_content_frame, text="Enter the **number** of the book to checkout:").pack(pady=5)
-    book_entry = ttk.Entry(main_content_frame, width=10)
-    book_entry.pack(pady=5)
-    
-    ttk.Button(main_content_frame, text = 'Checkout', command = lambda: handle_checkout(book_entry, user_obj, main_content_frame)).pack(pady=10)
-    
     # Return to appropriate menu
     if is_admin(user_obj):
-        ttk.Button(main_content_frame, text="Back to Admin Menu", command=lambda: show_admin_menu(user_obj)).pack(pady=5)
+        ttk.Button(main_content_frame, text="Back to Admin Menu", command=lambda: show_admin_menu(user_obj)).pack(pady=20)
     else:
-        ttk.Button(main_content_frame, text="Back to Menu", command=lambda: show_library_menu(user_obj)).pack(pady=5)
+        ttk.Button(main_content_frame, text="Back to Menu", command=lambda: show_library_menu(user_obj)).pack(pady=20)
 
 
 def book_return(user_obj):
     clear_frame(main_content_frame)
     ttk.Label(main_content_frame, text="Your Checked Out Books", font=('Arial', 16, 'bold')).pack(pady=10)
 
+    # show a list of unique books checked out by the user
+    checked_out_books_unique = []
+    
     if not user_obj.items_checked_out:
         ttk.Label(main_content_frame, text="You have no books checked out.").pack(pady=10)
+        # Return to appropriate menu
         if is_admin(user_obj):
             ttk.Button(main_content_frame, text="Back to Admin Menu", command=lambda: show_admin_menu(user_obj)).pack(pady=20)
         else:
@@ -325,17 +384,22 @@ def book_return(user_obj):
         return
         
     inventory_text = tk.Text(main_content_frame, height=5, width=50)
-    for i, (book, copy) in enumerate(user_obj.items_checked_out):
-        try:
-            main_index = library.inventory.index(book) + 1
-            inventory_text.insert(tk.END, f"{main_index}. {book.name} | Due: {copy['return_date']}\n")
-        except ValueError:
-            inventory_text.insert(tk.END, f"- {book.name} | Due: {copy['return_date']} (Unknown Index)\n")
+    
+    # Store the unique book objects and list them in the text widget
+    listable_books = [] 
+    
+    for book, copy in user_obj.items_checked_out:
+        if book not in [b for b, c in checked_out_books_unique]:
+            checked_out_books_unique.append((book, copy))
+            listable_books.append(book)
+            # IMPORTANT: The number shown here is for *this* list, not the main inventory list
+            inventory_text.insert(tk.END, f"{len(listable_books)}. {book.name} | Due: {copy['return_date']}\n")
+
 
     inventory_text.config(state=tk.DISABLED)
     inventory_text.pack(pady=5, padx=10)
     
-    ttk.Label(main_content_frame, text="Enter the **number** of the book from the main list to return:").pack(pady=5)
+    ttk.Label(main_content_frame, text="Enter the **number** of the book to return (from the list above):").pack(pady=5)
     book_entry = ttk.Entry(main_content_frame, width=10)
     book_entry.pack(pady=5)
     
@@ -348,14 +412,184 @@ def book_return(user_obj):
         ttk.Button(main_content_frame, text="Back to Menu", command=lambda: show_library_menu(user_obj)).pack(pady=5)
 
 
+# --- UI Functions ---
+
+def show_search_form(user_obj):
+    """Displays the form for searching the catalog."""
+    clear_frame(main_content_frame)
+    ttk.Label(main_content_frame, text="Find a Book", font=('Arial', 16, 'bold')).pack(pady=15)
+    
+    search_by_var = tk.StringVar(value='title') 
+
+    # Search Type Selection 
+    search_frame = ttk.Frame(main_content_frame)
+    search_frame.pack(pady=10)
+    ttk.Label(search_frame, text="Search By:").pack(side=tk.LEFT, padx=5)
+    ttk.Radiobutton(search_frame, text="Title", variable=search_by_var, value='title').pack(side=tk.LEFT, padx=5)
+    ttk.Radiobutton(search_frame, text="Author", variable=search_by_var, value='author').pack(side=tk.LEFT, padx=5)
+    ttk.Radiobutton(search_frame, text="Genre", variable=search_by_var, value='genre').pack(side=tk.LEFT, padx=5)
+    
+    # Search Term Entry
+    ttk.Label(main_content_frame, text="Search Term:").pack(pady=5)
+    search_term_entry = ttk.Entry(main_content_frame, width=40)
+    search_term_entry.pack(pady=5)
+    
+    # Search Button
+    ttk.Button(
+        main_content_frame, 
+        text="Search Catalog",
+        command=lambda: handle_search(search_term_entry, search_by_var, user_obj)
+    ).pack(pady=10)
+
+    # Back Button
+    if is_admin(user_obj):
+        ttk.Button(main_content_frame, text="Back to Admin Menu", command=lambda: show_admin_menu(user_obj)).pack(pady=20)
+    else:
+        ttk.Button(main_content_frame, text="Back to Menu", command=lambda: show_library_menu(user_obj)).pack(pady=20)
+
+
+def show_search_results(user_obj, results, search_term, search_by):
+    """Displays the results of a book search."""
+    clear_frame(main_content_frame)
+    ttk.Label(main_content_frame, text=f"Search Results for '{search_term}' ({search_by})", font=('Arial', 16, 'bold')).pack(pady=10)
+    
+    if not results:
+        ttk.Label(main_content_frame, text="No books found matching your search.", foreground='red').pack(pady=10)
+    else:
+        # Display results in a scrollable list
+        results_frame = ttk.Frame(main_content_frame)
+        results_frame.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        # Using a Treeview for a cleaner list display
+        tree = ttk.Treeview(results_frame, columns=("Title", "Author", "Genre"), show="headings", height=10)
+        tree.heading("Title", text="Title")
+        tree.heading("Author", text="Author")
+        tree.heading("Genre", text="Genre")
+        tree.column("Title", width=200)
+        tree.column("Author", width=150)
+        tree.column("Genre", width=100)
+        
+        # Store book objects with their treeview ID for easy retrieval
+        book_id_map = {}
+        for i, book in enumerate(results):
+            # Check availability (simple check for at least one copy being available)
+            is_available = any(copy['borrowed_by'] is None for copy in book.copies)
+            availability_text = "🟢 Available" if is_available else "🟡 Waitlist"
+            
+            item_id = tree.insert("", tk.END, values=(book.name, book.author, book.genre), 
+                                  tags=('available' if is_available else 'waitlist',))
+            
+            # Map the treeview item ID to the actual Book object
+            book_id_map[item_id] = book
+
+            # Update the title column to include availability
+            tree.set(item_id, 'Title', f"{book.name} ({availability_text})")
+
+
+        tree.pack(fill='both', expand=True)
+
+        def checkout_selected(event):
+            """Handles the checkout command when a book is selected in the Treeview."""
+            selected_item = tree.focus()
+            if not selected_item:
+                messagebox.showerror("Error", "Please select a book from the list.")
+                return
+            
+            selected_book = book_id_map.get(selected_item)
+            if selected_book:
+                handle_checkout(selected_book, user_obj)
+
+        tree.bind('<Double-1>', checkout_selected) # Double click to checkout
+
+        # Instruction Label
+        ttk.Label(main_content_frame, text="Double-click a book to Check Out or Join Waitlist.", font=('Arial', 10)).pack(pady=5)
+    
+    # Back to Search Button
+    ttk.Button(main_content_frame, text="New Search", command=lambda: show_search_form(user_obj)).pack(pady=10)
+    
+    # Back to Menu Button
+    if is_admin(user_obj):
+        ttk.Button(main_content_frame, text="Back to Admin Menu", command=lambda: show_admin_menu(user_obj)).pack(pady=5)
+    else:
+        ttk.Button(main_content_frame, text="Back to Menu", command=lambda: show_library_menu(user_obj)).pack(pady=5)
+
+
+def show_recommendations(user_obj):
+    """Displays a list of recommended books based on checkout history."""
+    clear_frame(main_content_frame)
+    ttk.Label(main_content_frame, text="Recommended Books ⭐", font=('Arial', 16, 'bold')).pack(pady=10)
+
+    # Get recommendations
+    recommendations = library.recommend_books(user_obj)
+        
+    if not recommendations:
+        ttk.Label(main_content_frame, text="No new recommendations available right now. Checkout a book to start receiving recommendations!", foreground='red', wraplength=400).pack(pady=10)
+    else:
+        
+        # Display recommendations (using a Treeview for consistency)
+        results_frame = ttk.Frame(main_content_frame)
+        results_frame.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        tree = ttk.Treeview(results_frame, columns=("Title", "Author", "Genre"), show="headings", height=5)
+        tree.heading("Title", text="Title")
+        tree.heading("Author", text="Author")
+        tree.heading("Genre", text="Genre")
+        tree.column("Title", width=200)
+        tree.column("Author", width=150)
+        tree.column("Genre", width=100)
+
+        book_id_map = {}
+        for i, book in enumerate(recommendations):
+            is_available = any(copy['borrowed_by'] is None for copy in book.copies)
+            availability_text = "🟢 Available" if is_available else "🟡 Waitlist"
+            
+            item_id = tree.insert("", tk.END, values=(book.name, book.author, book.genre))
+            book_id_map[item_id] = book
+            tree.set(item_id, 'Title', f"{book.name} ({availability_text})")
+
+        tree.pack(fill='both', expand=True)
+
+        def checkout_selected(event):
+            """Handles the checkout command when a book is selected in the Treeview."""
+            selected_item = tree.focus()
+            if not selected_item:
+                messagebox.showerror("Error", "Please select a book from the list.")
+                return
+            
+            selected_book = book_id_map.get(selected_item)
+            if selected_book:
+                handle_checkout(selected_book, user_obj)
+
+        tree.bind('<Double-1>', checkout_selected) # Double click to checkout
+
+        # Instruction Label
+        ttk.Label(main_content_frame, text="Double-click a recommendation to Check Out or Join Waitlist.", font=('Arial', 10)).pack(pady=5)
+    
+    # Back to Menu Button
+    if is_admin(user_obj):
+        ttk.Button(main_content_frame, text="Back to Admin Menu", command=lambda: show_admin_menu(user_obj)).pack(pady=20)
+    else:
+        ttk.Button(main_content_frame, text="Back to Menu", command=lambda: show_library_menu(user_obj)).pack(pady=20)
+
+
 def show_main_menu():
     """Displays the initial welcome screen and user choice buttons."""
     clear_frame(main_content_frame)
-    global current_user
+    global current_user, inventory_count
     current_user = None 
     
     ttk.Label(main_content_frame, text="Welcome to Group 12's Library System!", font=('Arial', 16, 'bold')).pack(pady=(20, 5))
     ttk.Label(main_content_frame, text="Please choose an option to continue.").pack(pady=(0, 20))
+
+    # Inventory status display
+    if inventory_count > 0:
+        status_text = f"Catalog Status: {inventory_count} books loaded successfully. 🟢"
+        status_color = 'green'
+    else:
+        status_text = "Catalog Status: Inventory is empty. 🔴 Check console for file path errors."
+        status_color = 'red'
+        
+    ttk.Label(main_content_frame, text=status_text, foreground=status_color).pack(pady=(0, 20))
     
     ttk.Button(
         main_content_frame,

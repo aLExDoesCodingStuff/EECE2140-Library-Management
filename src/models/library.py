@@ -2,11 +2,7 @@
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Nov  5 16:17:45 2025
 
-@author: alexmessier
-"""
 import sys
 from pathlib import Path
 from datetime import timedelta
@@ -41,21 +37,43 @@ class Library:
    
     # bulk add books to inventory from a book dataset (CSV format)
     def parse_CSV(self,filePath):
+        books_added = 0 
         try:
             print(f"[DEBUG] Attempting to load CSV from: {filePath}")
             df = pd.read_csv(filePath,usecols=['Title','Author','Genre']).dropna()
+            
+            # ADDED: Confirm successful read and row count
+            print(f"[DEBUG] CSV read successful. Found {len(df)} rows.")
+            
             data = df.to_numpy()
+            
             for row in data:
                 title = row[0]
                 author = row[1]
                 genre = row[2]
-                self.inventory.append(Book(title,author,genre))
+                
+                # CRITICAL FIX: Error handling for Book instantiation
+                try:
+                    # NOTE: This assumes 'models/book.py' and the Book class are correctly defined 
+                    self.inventory.append(Book(title,author,genre))
+                    books_added += 1
+                except Exception as book_err:
+                    print(f"[ERROR] Failed to instantiate Book for: {title} by {author}. Error: {book_err}. Skipping this row.")
+                    # Continue to try next row if only a few fail
+                    pass 
+
             
-            print("[DEBUG] Parsed CSV and added items to inventory.")
+            print(f"[DEBUG] Parsed CSV and added {books_added} items to inventory.")
+            return books_added
         
-        except Exception as e: # <-- CHANGE TO CATCH A SPECIFIC EXCEPTION
-            print(f"[ERROR] Failed to load CSV file.") # <-- ADD THIS LINE
+        except FileNotFoundError:
+            # Added specific print for File Not Found
+            print(f"[ERROR] Failed to load CSV file. File not found at {filePath}.")
+            return 0
+        except Exception as e: # <-- CATCHES ANY OTHER ERROR DURING FILE LOAD/PARSE (e.g., pandas error, Book class import error)
+            print(f"[ERROR] Failed to load or process CSV file.") 
             print(f"[ERROR] The exact error is: {e}")
+            return 0
     
     def __find_available_copy(self,book):
         for copy in book.copies:
@@ -71,56 +89,14 @@ class Library:
         user.items_checked_out.append((book, copy))
 
     def checkout_item(self, book, user):
-        if not self.ac.has_permission(user.username,"checkout_item"):
-            raise PermissionError("Access Denied: checkout_item")
-            
-        # Check if book is available on hold
-        for (u, window) in list(book.waitlist.holds_pending):
-            if u == user: 
-                self.__process_checkout(user, book, book.copies[0]) # Assuming first copy for simplicity
-                book.waitlist.holds_pending.remove((u, window))
-                user.items_on_hold.remove(book)
-                return f"{user.username} checked out {book.name} (Hold)."
-
-        # Check for available copy
-        copy = self.__find_available_copy(book)
-        if copy is not None:
-            self.__process_checkout(user, book, copy)
-            return f"{user.username} checked out: {book.name} by {book.author}."
-        
-        # Add to waitlist
-        pos = book.waitlist.add_to_queue(user)
-        user.items_on_hold.append(book)
-        return f"All copies of {book.name} are checked out. {user.username} waitlisted at position {pos}."
+        # NOTE: Keeping the previous function structure for internal consistency but it's redundant
+        pass 
 
 
     def return_item(self, book, user):
-        if not self.ac.has_permission(user.username,"return_item"):
-            raise PermissionError("Access Denied: return_item")
-            
-        copy_found = None
-        
-        # 1. Find the specific copy the user has checked out
-        for book_ref, copy_ref in user.items_checked_out:
-            if book_ref == book and copy_ref['borrowed_by'] == user: 
-                copy_found = copy_ref
-                user.items_checked_out.remove((book_ref, copy_ref))
-                break
+        # NOTE: Keeping the previous function structure for internal consistency but it's redundant
+        pass
 
-        if copy_found is None:
-            return f"{user.username} does NOT have {book.name} checked out."
-
-        # 2. Reset the copy in the book's inventory
-        copy_found["borrowed_by"] = None
-        copy_found["borrow_date"] = None
-        copy_found["return_date"] = None
-
-        # 3. Advance waitlist if queue is not empty
-        if book.waitlist.queue:
-            book.waitlist.advance_waitlist()
-        
-        return f"{user.username} returned {book.name}."
-    
     def cleanup_user_data(self, user_obj, admin_user):
         # 1. Authorization check
         if not self.ac.has_permission(admin_user.username, "delete_user"):
@@ -213,47 +189,50 @@ class Library:
 
           
     # Checks out a book from the library's inventory. 
-    def checkout_item(self,book,user):
-        # check if the user has the member role
-        if not self.ac.has_permission(user.username,"checkout_item"):
+    def checkout_item(self, book, user):
+    
+    # 1. Permission check
+        if not self.ac.has_permission(user.username, "checkout_item"):
             raise PermissionError("Access Denied: checkout_item")
-       
-        
-        # Check if the user already has the book in their hold list
+    
+    # Define concise history update function
+        def _update_history(book, user):
+            genre_name = book.genre.strip()
+            # Use .get(key, default) to safely increment count
+            user.checkout_history[genre_name] = user.checkout_history.get(genre_name, 0) + 1
+    
+        # 2. Check for Hold/Waitlist Pickup
         if book in user.items_on_hold:
-            # if the user has already been through the waitlist (and is finally picking the book up)
-            for u,window in book.waitlist.holds_pending:
+            for u, window in book.waitlist.holds_pending:
                 if u == user:
                     copy = self.__find_available_copy(book)
-                    self.__process_checkout(user,book,copy)
-                    print(f"{user.username} checked out: {book.name} by {book.author}.")
-                    book.waitlist.holds_pending.remove((u,window))
-                    return
-              
-            # else it's a duplicate hold request from someone in the waitlist already
-            print(f"{user} has already placed {book.name} by {book.author} on hold, and is in the waitlist (current position: {book.waitlist.get_pos(user)})")
-            return
+                    self.__process_checkout(user, book, copy)
+                
+                    _update_history(book, user) #HISTORY UPDATE (Hold Pickup)
+                
+                    return f"Checkout successful (Hold): {book.name}"
         
-        # Check to see if there is a waitlist active. If so, join the waitlist.
-        if len(book.waitlist.queue)>0:
-            pos = book.waitlist.add_to_queue(user)
-            user.items_on_hold.append(book)
-            print(f"All Copies of {book.name} by {book.author} are currently on hold. Added {user.username} to the waitlist (current position: {pos}). ")
-            return
+            # User is on hold but not currently in the pending pickup window
+            raise Exception(f"{book.name} is already on hold (position: {book.waitlist.get_pos(user)})")
         
-        # If there's no active waitlist, check the list of copies to see if the book is available.
+        # 3. Check for immediate availability
         copy = self.__find_available_copy(book)
-        if copy != None:
-            self.__process_checkout(user,book,copy)
-            print(f"{user.username} checked out: {book.name} by {book.author}.") # Update message to include available remaining copies
-            return
+        if copy is not None:
+            self.__process_checkout(user, book, copy)
+            
+            _update_history(book, user) # <HISTORY UPDATE (Initial Checkout)
+            
+            return f"Checkout successful: {book.name}"
+            
+        # 4. If not available, join the waitlist
         
-        # if all copies are in use, join the waitlist  
+        
         pos = book.waitlist.add_to_queue(user)
         user.items_on_hold.append(book)
-        print(f"All Copies of {book.name} by {book.author} are currently on hold. Added {user.username} to the waitlist (current position: {pos}). ")
-    
-    # Returns a book to the library's inventory, and assesses late fees if applicable
+        raise Exception(f"All copies checked out. Added to waitlist (position: {pos})")
+        
+        
+        # Returns a book to the library's inventory, and assesses late fees if applicable
     def return_item(self,book,user):
         # check authorization
         if not self.ac.has_permission(user.username,"return_item"):
@@ -265,8 +244,8 @@ class Library:
             if b == book:
                 copy = c
         if copy == None:
-            print(f"{user} does not currently have {book.name} checked out.")
-            return
+            # print(f"{user} does not currently have {book.name} checked out.") # Removed print for UI
+            raise Exception(f"{book.name} is NOT checked out by you.")
             
         # assess late fees (if applicable)
         
@@ -282,10 +261,11 @@ class Library:
                 break
         
         # print a summary
-        print(f"{user} returned {book.name}.")
+        # print(f"{user} returned {book.name}.") # Removed print for UI
         
         # advance the waitlist
         book.waitlist.advance_waitlist()    
+        return f"Return successful: {book.name}"
         
 #================================================================  
 # ADMIN ACCESSIBLE METHODS  
@@ -342,12 +322,12 @@ class Library:
         if not self.ac.has_permission(user.username,"check_overdue"):
             raise PermissionError("Access Denied: check_overdue")
             
+        overdue_list = []
         for book in self.inventory:
-            overdue = self.get_overdue_copies(book)
+            overdue = self.__get_overdue_copies(book)
             for copy in overdue:
-                days_overdue = self.get_days_overdue(copy)
-                print(copy["borrowed_by"],days_overdue)
-                
+                overdue_list.append(copy)
+        return overdue_list # Changed to return list instead of printing
          
     # checks a book object for checked-out copies which are overdue
     # returns a list of overdue copies
@@ -360,7 +340,8 @@ class Library:
         for copy in book.copies:
             # see if copy is checked out
             if copy["borrowed_by"]!=None:
-                if copy["return_date"]<self.current_date or copy["return_date"] == self.current_date:
+                # Use strict inequality for 'overdue' to align with UI logic
+                if copy["return_date"] < self.current_date: 
                     overdue_copies.append(copy)
         return overdue_copies
 
@@ -370,21 +351,6 @@ class Library:
         time_delta = self.current_date - return_date
         days_overdue = time_delta.days
         return days_overdue
-    
-    
-    # bulk add books to inventory from a book dataset (CSV format)
-    def parse_CSV(self,filePath):
-            
-        df = pd.read_csv(filePath,usecols=['Title','Author','Genre'])
-        data = df.to_numpy()
-        for row in data:
-            title = row[0]
-            author = row[1]
-            genre = row[2]
-            self.inventory.append(Book(title,author,genre))
-        
-        print("Parsed CSV and added items to inventory.")
-    
     
     # modify the current date recognized by the library instance AND related classes
     # * note that directly changing self.current_date would fail to change the date of related classes such as waitlist
@@ -397,49 +363,64 @@ class Library:
             raise TypeError
         self.current_date = new_date
 
-    #search for books by exact title 
-    def search_by_title(self,title):
-        results=[]
-        for book in self.inventory:
-            if book.name.lower() == title.lower():
-                results.append(book)
-        if results: 
-            print(f"\n{len(results)} found with title '{title}")
-            for i, book in enumerate(results,1):
-                print(f"{i}. {book.name} by {book.author}, {book.genre}")
-        else: 
-            print(f"\nNo books found with the title '{title}'")
-        return results
+
+    #search for books by title 
+    def __search_by_substring(self, search_term, field):
+        """Helper for case-insensitive substring search."""
+        results = []
+        term_lower = search_term.lower()
         
-    #search for books by the exact author name, undercase or uppercase
-    def search_by_author(self, author):
-        results=[]
-        for book in self.inventory: 
-            if book.author.lower() == author.lower():
-                results.append(book)
+        for book in self.inventory:
+            try:
+                # Use 'in' for substring matching instead of '==' for exact match
+                if field == 'title' and term_lower in book.name.lower():
+                    results.append(book)
+                elif field == 'author' and term_lower in book.author.lower():
+                    results.append(book)
+                elif field == 'genre' and term_lower in book.genre.lower():
+                    results.append(book)
+            except AttributeError:
+                # Handles cases where the book object might be missing the attribute
+                continue 
+                
         if results: 
-            print(f"\n{len(results)} found for author '{author}'")
-            for i, book in enumerate(results, 1):
-                print(f"{i}. {book.name}, {book.genre})")
+            # Output for console/terminal (can be improved if needed)
+            print(f"\n{len(results)} found for '{search_term}' in field '{field}'.")
         else: 
-            print(f"\nNo books found by author '{author}'.")
+            print(f"\nNo books found matching '{search_term}' in field '{field}'.")
+            
         return results
+
+    #search for books by title
+    def search_by_title(self,title):
+        return self.__search_by_substring(title, 'title')
+        
+    #search for books by the author name
+    def search_by_author(self, author):
+        return self.__search_by_substring(author, 'author')
 
     #searches for book by the genre, returns a list of books with that genre
     def search_by_genre(self,genre):
-        results=[]
-        for book in self.inventory: 
-            if book.genre.lower() == genre.lower():
-                results.append(book)
-        if results: 
-            print(f"\n{len(results)} found for genre '{genre}'")
-            for i, book in enumerate(results, 1):
-                print(f"{i}. {book.name} by {book.author})")
-        else: 
-            print(f"\nNo books found in genre '{genre}'.")
-        return results
-   
+        return self.__search_by_substring(genre, 'genre')
+    
+    def search_catalog(self, search_term, search_by):
+        """
+        Delegates search to the appropriate specific function based on search_by.
+        """
+        search_by = search_by.lower()
+        if search_by == 'title':
+            return self.search_by_title(search_term)
+        elif search_by == 'author':
+            return self.search_by_author(search_term)
+        elif search_by == 'genre':
+            return self.search_by_genre(search_term)
+        else:
+            print(f"[ERROR] Invalid search category: {search_by}")
+            return []
+        
     def recommend_books(self, user, max_recommendations=5): 
+        # ... (rest of recommend_books function)
+        # Note: You can keep the 'recommend_books' function as it was.
         if not user.checkout_history:
             print(f"\n{user.username} has no checkout history. No recommendations available.")
             return []
@@ -465,5 +446,4 @@ class Library:
         else:
             print(f"No additional books are available in the '{favorite_genre}' genre.")
         
-        return recommendations[:max_recommendations]    
-           
+        return recommendations[:max_recommendations]

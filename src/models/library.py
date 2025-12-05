@@ -97,11 +97,11 @@ class Library:
         pass
 
     def cleanup_user_data(self, user_obj, admin_user):
-        # 1. Authorization check
+        # Authorization check
         if not self.ac.has_permission(admin_user.username, "delete_user"):
             raise PermissionError("Access Denied: delete_user")
 
-        # 2. Handle checked-out items (reset copies and advance waitlist)
+        # Handle checked-out items (reset copies and advance waitlist)
         for book_ref, copy_ref in list(user_obj.items_checked_out):
             # Reset the specific copy back to available
             copy_ref["borrowed_by"] = None
@@ -112,7 +112,7 @@ class Library:
             if len(book_ref.waitlist.queue) > 0:
                 book_ref.waitlist.advance_waitlist()
         
-        # 3. Handle waitlist items (remove user from queues/holds)
+        # Handle waitlist items (remove user from queues/holds)
         for book in self.inventory:
             # Remove from waitlist queue (deque method)
             if user_obj in book.waitlist.queue:
@@ -125,7 +125,7 @@ class Library:
                     holds_to_remove.add(hold)
             book.waitlist.holds_pending -= holds_to_remove
 
-        # 4. Clean up AccessControl roles
+        # Clean up AccessControl roles
         if user_obj.username in self.ac.user_roles:
             del self.ac.user_roles[user_obj.username]
             
@@ -190,7 +190,7 @@ class Library:
     # Checks out a book from the library's inventory. 
     def checkout_item(self, book, user):
     
-    # 1. Permission check
+    # Permission check
         if not self.ac.has_permission(user.username, "checkout_item"):
             raise PermissionError("Access Denied: checkout_item")
     
@@ -199,7 +199,7 @@ class Library:
             genre_name = book.genre.strip()
             user.checkout_history[genre_name] = user.checkout_history.get(genre_name, 0) + 1
     
-        # 2. Check for Hold/Waitlist Pickup
+        # Check for Hold/Waitlist Pickup
         if book in user.items_on_hold:
             for u, window in book.waitlist.holds_pending:
                 if u == user:

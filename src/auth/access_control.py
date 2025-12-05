@@ -12,14 +12,15 @@ from auth.role import Role
 
 
 class AccessControl:
-    def __init__(self):
+    def __init__(self, role_types:set):
+        self.role_types = role_types # list of role types (eg, member,admin) 
         self.user_roles = {}  # maps user_id → list of roles
 
     # assign a role or list of roles to a user
     def assign_role(self, user_id, role):
         # make sure role is a Role or list of Roles
         if not isinstance(role,Role) and not isinstance(role,list):
-            return False
+            raise TypeError("Invalid Input.")
         
         if type(role)==Role:
             self.user_roles.setdefault(user_id,set()).add(role)
@@ -36,8 +37,17 @@ class AccessControl:
                     if p == permission:
                         return True
         else: return False
-                
-    
+        
+    # given a user_id, return the names of the roles assigned to the user as a string
+    def roles_as_str(self,user_id):
+        roles = self.user_roles[user_id]
+        s = ""
+        for role in roles:
+           s += role.name + ","
+        s = s.removesuffix(",")
+        return s
+        
+         
     def requires_permission(permission):
         def decorator(func):
             def wrapper(self, user, *args, **kwargs):
@@ -49,4 +59,6 @@ class AccessControl:
         return decorator
     
 
-
+    
+    
+                   

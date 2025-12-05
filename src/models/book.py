@@ -6,10 +6,11 @@ from models.user import User
 
 class Book:
     
-    def __init__(self,name,author,genre):
+    def __init__(self,name,author,genre,book_id):
         self.name = name
         self.author = author
         self.genre = genre
+        self.id = book_id
         self.copies = self.make_copies(3)
         self.waitlist = Waitlist(self)
         
@@ -41,5 +42,11 @@ class Book:
      
     def __repr__(self):
         return f"{self.name},'{self.author}',{self.genre},{len(self.copies)}"
+    
+    def __eq__(self,other):
+        if not isinstance(other,Book):
+            return False
+        return other.name==self.name and other.author==self.author and other.genre==self.genre
+    
         
     

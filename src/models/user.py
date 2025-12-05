@@ -9,8 +9,9 @@ Created on Wed Nov  5 16:18:35 2025
 
 
 class User: 
-    def __init__(self, username:str):
+    def __init__(self, username:str, user_id:int):
         self.username = username
+        self.user_id = user_id
         self.items_checked_out = []
         self.items_on_hold = []
         
@@ -27,13 +28,13 @@ class User:
             print(f"{self.username} does not currently have any books on hold")
         else: 
             counter = 0
-            for book in self.items_checked_out:
-                print(f"{counter}. {book}.")
+            for book,loan_number in self.items_checked_out:
+                print(f"{counter}. Loan No.{loan_number}. Book: {book}.")
                 counter +=1
                 
     def __str__(self):
         return self.username
     
     def __repr__(self):
-        return f"username ='{self.username}',items_checked_out={self.items_checked_out},items_on_hold={self.items_on_hold}"
+        return f"username ='{self.username}',user_id='{self.user_id}',items_checked_out={self.items_checked_out},items_on_hold={self.items_on_hold}"
         

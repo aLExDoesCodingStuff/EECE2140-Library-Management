@@ -27,13 +27,14 @@ class Waitlist:
         
         
     def advance_waitlist(self):
-        line_leader = self.queue.popleft()
-        checkout_window = self.calculate_checkout_window()
-        t = (line_leader,checkout_window)
-        self.holds_pending.add(t)
-        print(f"{line_leader.username}, a copy of {self.hold_item.name} is now available to check out. You have 3 days to check it out before you automatically forfeit your spot in the waitlist.")
-
-    
+        if len(self.queue)>0:
+            line_leader = self.queue.popleft()
+            checkout_window = self.calculate_checkout_window()
+            t = (line_leader,checkout_window)
+            self.holds_pending.add(t)
+            print(f"{line_leader.username}, a copy of {self.hold_item.name} is now available to check out. You have 3 days to check it out before you automatically forfeit your spot in the waitlist.")
+        
+        
     def get_pos(self,user):
         try:
             spot = self.queue.index(user) + 1
@@ -73,7 +74,6 @@ class Waitlist:
                 user.holds_pending.remove(self.hold_item)
                 # call notify_waitlist_leader
                 
-                
         
     
     def print_str(self):
@@ -85,4 +85,6 @@ class Waitlist:
                 string += ","
             counter+=1
         return string
+
+    
             

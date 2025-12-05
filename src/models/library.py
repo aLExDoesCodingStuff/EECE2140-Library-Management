@@ -2,7 +2,11 @@
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Created on Wed Nov  5 16:17:45 2025
 
+@author: alexmessier
+"""
 import sys
 from pathlib import Path
 from datetime import timedelta
@@ -42,7 +46,6 @@ class Library:
             print(f"[DEBUG] Attempting to load CSV from: {filePath}")
             df = pd.read_csv(filePath,usecols=['Title','Author','Genre']).dropna()
             
-            # ADDED: Confirm successful read and row count
             print(f"[DEBUG] CSV read successful. Found {len(df)} rows.")
             
             data = df.to_numpy()
@@ -52,9 +55,7 @@ class Library:
                 author = row[1]
                 genre = row[2]
                 
-                # CRITICAL FIX: Error handling for Book instantiation
                 try:
-                    # NOTE: This assumes 'models/book.py' and the Book class are correctly defined 
                     self.inventory.append(Book(title,author,genre))
                     books_added += 1
                 except Exception as book_err:
@@ -70,7 +71,7 @@ class Library:
             # Added specific print for File Not Found
             print(f"[ERROR] Failed to load CSV file. File not found at {filePath}.")
             return 0
-        except Exception as e: # <-- CATCHES ANY OTHER ERROR DURING FILE LOAD/PARSE (e.g., pandas error, Book class import error)
+        except Exception as e:
             print(f"[ERROR] Failed to load or process CSV file.") 
             print(f"[ERROR] The exact error is: {e}")
             return 0
@@ -89,12 +90,10 @@ class Library:
         user.items_checked_out.append((book, copy))
 
     def checkout_item(self, book, user):
-        # NOTE: Keeping the previous function structure for internal consistency but it's redundant
         pass 
 
 
     def return_item(self, book, user):
-        # NOTE: Keeping the previous function structure for internal consistency but it's redundant
         pass
 
     def cleanup_user_data(self, user_obj, admin_user):
@@ -198,7 +197,6 @@ class Library:
     # Define concise history update function
         def _update_history(book, user):
             genre_name = book.genre.strip()
-            # Use .get(key, default) to safely increment count
             user.checkout_history[genre_name] = user.checkout_history.get(genre_name, 0) + 1
     
         # 2. Check for Hold/Waitlist Pickup
@@ -208,14 +206,14 @@ class Library:
                     copy = self.__find_available_copy(book)
                     self.__process_checkout(user, book, copy)
                 
-                    _update_history(book, user) #HISTORY UPDATE (Hold Pickup)
+                    _update_history(book, user) 
                 
                     return f"Checkout successful (Hold): {book.name}"
         
             # User is on hold but not currently in the pending pickup window
             raise Exception(f"{book.name} is already on hold (position: {book.waitlist.get_pos(user)})")
         
-        # 3. Check for immediate availability
+        # Check for immediate availability
         copy = self.__find_available_copy(book)
         if copy is not None:
             self.__process_checkout(user, book, copy)
@@ -224,7 +222,7 @@ class Library:
             
             return f"Checkout successful: {book.name}"
             
-        # 4. If not available, join the waitlist
+        # If not available, join the waitlist
         
         
         pos = book.waitlist.add_to_queue(user)
@@ -247,7 +245,6 @@ class Library:
             # print(f"{user} does not currently have {book.name} checked out.") # Removed print for UI
             raise Exception(f"{book.name} is NOT checked out by you.")
             
-        # assess late fees (if applicable)
         
         # clear the update the copy information on the book
         copy["borrowed_by"] = None
@@ -260,8 +257,6 @@ class Library:
                 user.items_checked_out.remove((b,c))
                 break
         
-        # print a summary
-        # print(f"{user} returned {book.name}.") # Removed print for UI
         
         # advance the waitlist
         book.waitlist.advance_waitlist()    
@@ -327,7 +322,7 @@ class Library:
             overdue = self.__get_overdue_copies(book)
             for copy in overdue:
                 overdue_list.append(copy)
-        return overdue_list # Changed to return list instead of printing
+        return overdue_list
          
     # checks a book object for checked-out copies which are overdue
     # returns a list of overdue copies
@@ -353,7 +348,6 @@ class Library:
         return days_overdue
     
     # modify the current date recognized by the library instance AND related classes
-    # * note that directly changing self.current_date would fail to change the date of related classes such as waitlist
     def set_date(self,new_date,user):
         # authorization check
         if not self.ac.has_permission(user.username,"set_date"):
@@ -372,7 +366,6 @@ class Library:
         
         for book in self.inventory:
             try:
-                # Use 'in' for substring matching instead of '==' for exact match
                 if field == 'title' and term_lower in book.name.lower():
                     results.append(book)
                 elif field == 'author' and term_lower in book.author.lower():
@@ -384,7 +377,7 @@ class Library:
                 continue 
                 
         if results: 
-            # Output for console/terminal (can be improved if needed)
+            # Output for console/terminal
             print(f"\n{len(results)} found for '{search_term}' in field '{field}'.")
         else: 
             print(f"\nNo books found matching '{search_term}' in field '{field}'.")
@@ -419,8 +412,6 @@ class Library:
             return []
         
     def recommend_books(self, user, max_recommendations=5): 
-        # ... (rest of recommend_books function)
-        # Note: You can keep the 'recommend_books' function as it was.
         if not user.checkout_history:
             print(f"\n{user.username} has no checkout history. No recommendations available.")
             return []

@@ -85,11 +85,11 @@ def clear_frame(frame):
         widget.destroy()
 
 def is_admin(user_obj):
-    # We check for a distinct admin permission like 'set_date' or check username == 'admin'
+    # We check for a distinct admin permission (EECE0001)
     return library.ac.has_permission(user_obj.username, "set_date")
 
 def save_state_and_exit():
-    """Saves the global library object and userbase and closes the GUI."""
+    #Saves the global library object and userbase and closes the GUI
     global library, userbase, root
     
     if save_state(library, userbase):
@@ -99,7 +99,7 @@ def save_state_and_exit():
 
 
 def update_user_base(name_entry, frame_to_clear):
-    """Registers a new user and updates the UI."""
+    #Registers a new user and updates the UI
     global userbase, library
     
     user_name = name_entry.get().strip()
@@ -127,7 +127,7 @@ def update_user_base(name_entry, frame_to_clear):
 
 
 def handle_login(login_entry):
-    """Processes login attempt and transitions to the user menu on success."""
+    #Processes login attempt and transitions to the user menu on success
     global current_user, userbase
     user_id = login_entry.get().strip().upper()
 
@@ -163,7 +163,7 @@ def handle_set_date(date_entry, frame, user_obj):
 
         
 def show_overdue_report(user_obj):
-    """Displays a list of all overdue items in a new window."""
+    #Displays a list of all overdue items in a new window
     
     try:
         # library.check_overdue handles permission check internally
@@ -211,7 +211,7 @@ def show_overdue_report(user_obj):
 
 
 def handle_checkout(book_obj, user_obj):
-    """Handles the checkout attempt for a specific book object."""
+    #Handles the checkout attempt for a specific book object
     try:
         # Checkout item
         result_message = library.checkout_item(book_obj, user_obj)
@@ -226,7 +226,7 @@ def handle_checkout(book_obj, user_obj):
         show_library_menu(user_obj) # Return to menu after Waitlist message
 
 def handle_return(book_entry, user_obj, frame):
-    """Handles the book return process from the list of checked-out items."""
+    #Handles the book return process from the list of checked-out items
     try:
         checked_out_books_unique = []
         # Get unique books the user has (to match the displayed list)
@@ -258,7 +258,7 @@ def handle_return(book_entry, user_obj, frame):
 
 
 def handle_search(search_term_entry, search_by_var, user_obj):
-    """Processes search and displays results."""
+    #Processes search and displays results
     search_term = search_term_entry.get().strip()
     search_by = search_by_var.get()
     
@@ -285,7 +285,7 @@ def show_admin_menu(user_obj):
     clear_frame(main_content_frame)
     ttk.Label(main_content_frame, text=f"Admin Portal: {user_obj.username}", font=('Arial', 18, 'bold')).pack(pady=20)
     
-    # 1. System/Time Management
+    # System/Time Management
     ttk.Label(main_content_frame, text=f"Current Library Date: {library.current_date}").pack(pady=(5, 10))
 
     # Overdue Report Button
@@ -308,10 +308,8 @@ def show_admin_menu(user_obj):
 
 
 def show_library_menu(user_obj):
-    """
-    Shows the appropriate menu (Admin or Member) based on user permissions.
-    MODIFIED: Replaced checkout button with Search and Recommendations.
-    """
+    
+    #Shows the appropriate menu (Admin or Member) based on user permissions.
     if is_admin(user_obj):
         show_admin_menu(user_obj)
         return
@@ -415,7 +413,7 @@ def book_return(user_obj):
 # --- UI Functions ---
 
 def show_search_form(user_obj):
-    """Displays the form for searching the catalog."""
+    #Displays the form for searching the catalo."""
     clear_frame(main_content_frame)
     ttk.Label(main_content_frame, text="Find a Book", font=('Arial', 16, 'bold')).pack(pady=15)
     
@@ -449,7 +447,7 @@ def show_search_form(user_obj):
 
 
 def show_search_results(user_obj, results, search_term, search_by):
-    """Displays the results of a book search."""
+    #Displays the results of a book search
     clear_frame(main_content_frame)
     ttk.Label(main_content_frame, text=f"Search Results for '{search_term}' ({search_by})", font=('Arial', 16, 'bold')).pack(pady=10)
     
@@ -515,9 +513,9 @@ def show_search_results(user_obj, results, search_term, search_by):
 
 
 def show_recommendations(user_obj):
-    """Displays a list of recommended books based on checkout history."""
+    #Displays a list of recommended books based on checkout history
     clear_frame(main_content_frame)
-    ttk.Label(main_content_frame, text="Recommended Books ⭐", font=('Arial', 16, 'bold')).pack(pady=10)
+    ttk.Label(main_content_frame, text="Recommended Books", font=('Arial', 16, 'bold')).pack(pady=10)
 
     # Get recommendations
     recommendations = library.recommend_books(user_obj)
@@ -573,7 +571,7 @@ def show_recommendations(user_obj):
 
 
 def show_main_menu():
-    """Displays the initial welcome screen and user choice buttons."""
+    #Displays the initial welcome screen and user choice buttons
     clear_frame(main_content_frame)
     global current_user, inventory_count
     current_user = None 

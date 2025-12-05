@@ -206,7 +206,53 @@ def show_overdue_report(user_obj):
     except Exception as e:
         messagebox.showerror("Error", f"An unexpected error occurred while generating report: {e}")
 
+def show_catalog_report(admin_user):
+#Displays a list of all users and their currently checked out items
+    global userbase
 
+    try:
+        # Generate the catalog data
+        # The library.catalog_system performs the necessary authorization check
+        catalog_list = library.catalog_system(admin_user, list(userbase.values()))
+        
+        # Setup the report window
+        report_window = tk.Toplevel(root)
+        report_window.title("Checked Out Items Catalog")
+        
+        if not catalog_list:
+            ttk.Label(report_window, text="No items are currently checked out by any user.").pack(padx=20, pady=20)
+        else:
+            report_text = tk.Text(report_window, height=15, width=60)
+            report_text.pack(padx=20, pady=10)
+            report_text.insert(tk.END, "--- Library Catalog Status ---\n\n")
+            
+            # Aggregate by user for cleaner display
+            user_checkout_map = {}
+            for record in catalog_list:
+                username = record['username']
+                book_title = record['book_title']
+                return_date = record['return_date']
+                
+                if username not in user_checkout_map:
+                    user_checkout_map[username] = []
+                user_checkout_map[username].append(f"  - {book_title} (Due: {return_date})")
+
+            for username, items in user_checkout_map.items():
+                report_text.insert(tk.END, f"User: {username}\n")
+                for item in items:
+                    report_text.insert(tk.END, f"{item}\n")
+                report_text.insert(tk.END, "\n")
+
+
+            report_text.config(state=tk.DISABLED)
+            
+        ttk.Button(report_window, text="Close", command=report_window.destroy).pack(pady=10)
+
+    except PermissionError as e:
+        messagebox.showerror("Permission Denied", str(e))
+    except Exception as e:
+        messagebox.showerror("Error", f"An unexpected error occurred while generating report: {e}")    
+            
 # --- Member Specific Handlers ---
 
 
@@ -291,6 +337,9 @@ def show_admin_menu(user_obj):
     # Overdue Report Button
     ttk.Button(main_content_frame, text="View Overdue Items ⚠️", command=lambda: show_overdue_report(user_obj)).pack(pady=5, ipadx=20)
     
+    #View checkout catalog overview
+    ttk.Button(main_content_frame, text="View Checked Out Catalog📚", command=lambda: show_catalog_report(user_obj)).pack(pady=5, ipadx=20)
+    
     # Set Date Functionality
     ttk.Label(main_content_frame, text="Set System Date (YYYY-MM-DD):").pack(pady=5)
     date_entry = ttk.Entry(main_content_frame, width=15)
@@ -301,8 +350,8 @@ def show_admin_menu(user_obj):
     ttk.Separator(main_content_frame, orient='horizontal').pack(fill='x', pady=10)
     
     # User Actions (Now using search/return UI)
-    ttk.Button(main_content_frame, text="Search for a Book", command=lambda: show_search_form(user_obj)).pack(pady=5, ipadx=10)
-    ttk.Button(main_content_frame, text="Return a Book", command=lambda: book_return(user_obj)).pack(pady=5, ipadx=10)
+    ttk.Button(main_content_frame, text="Search for a Book📘", command=lambda: show_search_form(user_obj)).pack(pady=5, ipadx=10)
+    ttk.Button(main_content_frame, text="Return a Book ↩", command=lambda: book_return(user_obj)).pack(pady=5, ipadx=10)
     
     ttk.Button(main_content_frame, text="Logout", command=show_main_menu).pack(pady=20)
 
@@ -322,9 +371,9 @@ def show_library_menu(user_obj):
         ttk.Label(main_content_frame, text=f"Checked out: {len(user_obj.items_checked_out)} item(s)").pack()
 
     # Search and Recommendation buttons
-    ttk.Button(main_content_frame, text="Search for a Book", command=lambda: show_search_form(user_obj)).pack(pady=10, ipadx=10)
-    ttk.Button(main_content_frame, text="Get Book Recommendations", command=lambda: show_recommendations(user_obj)).pack(pady=10, ipadx=10)
-    ttk.Button(main_content_frame, text="Return a Book", command=lambda: book_return(user_obj)).pack(pady=10, ipadx=10)
+    ttk.Button(main_content_frame, text="Search for a Book📘", command=lambda: show_search_form(user_obj)).pack(pady=10, ipadx=10)
+    ttk.Button(main_content_frame, text="Get Book Recommendations⭐", command=lambda: show_recommendations(user_obj)).pack(pady=10, ipadx=10)
+    ttk.Button(main_content_frame, text="Return a Book ↩", command=lambda: book_return(user_obj)).pack(pady=10, ipadx=10)
     
     ttk.Button(main_content_frame, text="Logout", command=show_main_menu).pack(pady=20)
 
@@ -353,10 +402,10 @@ def show_login_form():
 
 def book_selection(user_obj):
     clear_frame(main_content_frame)
-    ttk.Label(main_content_frame, text="Available Books", font=('Arial', 16, 'bold')).pack(pady=10)
+    ttk.Label(main_content_frame, text="Available Books📚", font=('Arial', 16, 'bold')).pack(pady=10)
     
     ttk.Label(main_content_frame, text="Please use the Search feature to find and checkout a book.", foreground='blue').pack(pady=10)
-    ttk.Button(main_content_frame, text="Go to Search", command=lambda: show_search_form(user_obj)).pack(pady=10)
+    ttk.Button(main_content_frame, text="Go to Search🔍", command=lambda: show_search_form(user_obj)).pack(pady=10)
 
     # Return to appropriate menu
     if is_admin(user_obj):
@@ -367,7 +416,7 @@ def book_selection(user_obj):
 
 def book_return(user_obj):
     clear_frame(main_content_frame)
-    ttk.Label(main_content_frame, text="Your Checked Out Books", font=('Arial', 16, 'bold')).pack(pady=10)
+    ttk.Label(main_content_frame, text="Your Checked Out Books✅", font=('Arial', 16, 'bold')).pack(pady=10)
 
     # show a list of unique books checked out by the user
     checked_out_books_unique = []
@@ -415,7 +464,7 @@ def book_return(user_obj):
 def show_search_form(user_obj):
     #Displays the form for searching the catalo."""
     clear_frame(main_content_frame)
-    ttk.Label(main_content_frame, text="Find a Book", font=('Arial', 16, 'bold')).pack(pady=15)
+    ttk.Label(main_content_frame, text="Find a Book📘", font=('Arial', 16, 'bold')).pack(pady=15)
     
     search_by_var = tk.StringVar(value='title') 
 
@@ -435,7 +484,7 @@ def show_search_form(user_obj):
     # Search Button
     ttk.Button(
         main_content_frame, 
-        text="Search Catalog",
+        text="Search Catalog 📚",
         command=lambda: handle_search(search_term_entry, search_by_var, user_obj)
     ).pack(pady=10)
 
@@ -487,7 +536,7 @@ def show_search_results(user_obj, results, search_term, search_by):
         tree.pack(fill='both', expand=True)
 
         def checkout_selected(event):
-            """Handles the checkout command when a book is selected in the Treeview."""
+            #Handles the checkout command when a book is selected in the Treeview
             selected_item = tree.focus()
             if not selected_item:
                 messagebox.showerror("Error", "Please select a book from the list.")

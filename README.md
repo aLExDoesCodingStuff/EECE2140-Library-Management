@@ -27,8 +27,9 @@ A comprehensive system for managing a library's inventory, programmed in Python 
 - Increase inventory
 - Implement overdue book system via fees and bars
 
+## Video Demos
+- For a user experience demo, view the link below
+- https://teams.microsoft.com/l/meetingrecap?driveId=b%21UesGN8rnq0irz1vV2rVCDhuScXfm7s9Lj1DjCTXKZ5CDg39gyIitRp44iFx-p5St&driveItemId=01Y5MZMPSGLNZNBPUBKJELLW25IWOJHKLL&sitePath=https%3A%2F%2Fnortheastern-my.sharepoint.com%2F%3Av%3A%2Fg%2Fpersonal%2Fwassmann_b_northeastern_edu%2FEUZbctC-gVJItdtdRZyTqWsBw0IrEcGXMI9pWoF9CCkzCw&fileUrl=https%3A%2F%2Fnortheastern-my.sharepoint.com%2Fpersonal%2Fwassmann_b_northeastern_edu%2FDocuments%2FRecordings%2FMeeting%2520with%2520Brooke%2520Wassmann-20251205_192945-Meeting%2520Recording.mp4%3Fweb%3D1&threadId=19%3Ameeting_NWIwZmM5NjUtODNjOC00NDA4LThmODMtZWM3ZTY5ODA0ZmU3%40thread.v2&organizerId=f43b5d6d-186d-4135-b39e-cfb230a1b768&tenantId=a8eec281-aaa3-4dae-ac9b-9a398b9215e7&callId=eeac44c7-c1df-4df6-82ad-75828e3eccdd&threadType=Meeting&meetingType=MeetNow&subType=RecapSharingLink_RecapCore
 
-		
-
-
-
+- For a admin experience demo, view the link below this
+- https://teams.microsoft.com/l/meetingrecap?driveId=b%21UesGN8rnq0irz1vV2rVCDhuScXfm7s9Lj1DjCTXKZ5CDg39gyIitRp44iFx-p5St&driveItemId=01Y5MZMPSBHWPWM4FF3BDJFOMHMID63CDO&sitePath=https%3A%2F%2Fnortheastern-my.sharepoint.com%2F%3Av%3A%2Fg%2Fpersonal%2Fwassmann_b_northeastern_edu%2FEUE9n2ZwpdhGkrmHYgftiG4BKmOYK71jO5TGSXC6HacIrw&fileUrl=https%3A%2F%2Fnortheastern-my.sharepoint.com%2Fpersonal%2Fwassmann_b_northeastern_edu%2FDocuments%2FRecordings%2FMeeting%2520with%2520Brooke%2520Wassmann-20251205_193130-Meeting%2520Recording.mp4%3Fweb%3D1&threadId=19%3Ameeting_NWIwZmM5NjUtODNjOC00NDA4LThmODMtZWM3ZTY5ODA0ZmU3%40thread.v2&organizerId=f43b5d6d-186d-4135-b39e-cfb230a1b768&tenantId=a8eec281-aaa3-4dae-ac9b-9a398b9215e7&callId=eeac44c7-c1df-4df6-82ad-75828e3eccdd&threadType=Meeting&meetingType=MeetNow&subType=RecapSharingLink_RecapCore

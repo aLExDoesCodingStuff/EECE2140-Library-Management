@@ -23,6 +23,9 @@ A comprehensive system for managing a library's inventory, programmed in Python 
 ## Possible Future Features
 - Incorporate expanded admin features directly into admin page of GUI
 - Add data visualization
+- Emailing system
+- Increase inventory
+- Implement overdue book system via fees and bars
 
 
 		
